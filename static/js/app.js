@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // DOM Elements
     const refreshBtn = document.getElementById('refresh-btn');
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
     const exportCsvBtn = document.getElementById('export-csv-btn');
     const retryBtn = document.getElementById('retry-btn');
     const searchInput = document.getElementById('search-input');
@@ -46,6 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    applyTheme(savedTheme);
     fetchReleaseNotes();
 
     // Event Listeners
@@ -53,6 +56,15 @@ document.addEventListener('DOMContentLoaded', () => {
     retryBtn.addEventListener('click', () => fetchReleaseNotes(true));
     if (exportCsvBtn) {
         exportCsvBtn.addEventListener('click', exportToCSV);
+    }
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+            showToast(`Switched to ${newTheme} mode!`, 'info');
+        });
     }
     deselectBtn.addEventListener('click', closeComposer);
 
@@ -617,5 +629,22 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.removeChild(link);
         
         showToast(`Exported ${csvRows.length - 1} updates to CSV!`, 'success');
+    }
+
+    // Helper to apply the active theme and toggle icons
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        if (!themeToggleBtn) return;
+        
+        const sunIcon = themeToggleBtn.querySelector('.theme-icon-sun');
+        const moonIcon = themeToggleBtn.querySelector('.theme-icon-moon');
+        
+        if (theme === 'light') {
+            sunIcon.classList.add('hidden');
+            moonIcon.classList.remove('hidden');
+        } else {
+            sunIcon.classList.remove('hidden');
+            moonIcon.classList.add('hidden');
+        }
     }
 });
