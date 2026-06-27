@@ -215,6 +215,12 @@ body {
     border-color: var(--border-hover);
 }
 
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+}
+
 .btn-tweet {
     background-color: var(--text-primary);
     color: var(--bg-app);

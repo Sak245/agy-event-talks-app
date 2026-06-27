@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // DOM Elements
     const refreshBtn = document.getElementById('refresh-btn');
+    const exportCsvBtn = document.getElementById('export-csv-btn');
     const retryBtn = document.getElementById('retry-btn');
     const searchInput = document.getElementById('search-input');
     const clearSearchBtn = document.getElementById('clear-search-btn');
@@ -50,6 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners
     refreshBtn.addEventListener('click', () => fetchReleaseNotes(true));
     retryBtn.addEventListener('click', () => fetchReleaseNotes(true));
+    if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', exportToCSV);
+    }
     deselectBtn.addEventListener('click', closeComposer);
 
     // Search input handlers
@@ -308,6 +312,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="card-header">
                                 <span class="badge ${badgeClass}">${upd.type}</span>
                                 <div class="card-actions">
+                                    <button class="action-icon-btn copy-card-btn" title="Copy update text to clipboard" aria-label="Copy update text">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon">
+                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                        </svg>
+                                    </button>
                                     <button class="action-icon-btn share-btn" title="Draft tweet about this update" aria-label="Compose tweet">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon">
                                             <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path>
@@ -357,8 +367,8 @@ document.addEventListener('DOMContentLoaded', () => {
         feedContentArea.querySelectorAll('.update-card').forEach(card => {
             // Clicking the card itself
             card.addEventListener('click', (e) => {
-                // If they clicked the share button or link inside the card body, avoid double action triggers
-                if (e.target.closest('a') || e.target.closest('.share-btn')) {
+                // If they clicked the share/copy button or link inside the card body, avoid double action triggers
+                if (e.target.closest('a') || e.target.closest('.share-btn') || e.target.closest('.copy-card-btn')) {
                     if (e.target.closest('.share-btn')) {
                         selectCard(card);
                     }
@@ -366,6 +376,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 selectCard(card);
+            });
+
+            // Click listener for the card-specific copy button
+            card.querySelectorAll('.copy-card-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent card selection click event
+                    const textContent = card.querySelector('.card-body').innerText.trim();
+                    navigator.clipboard.writeText(textContent).then(() => {
+                        showToast('Update text copied to clipboard!', 'success');
+                    }).catch(err => {
+                        showToast('Failed to copy text', 'error');
+                        console.error('Copy card error:', err);
+                    });
+                });
             });
         });
     }
@@ -540,5 +564,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 toast.remove();
             });
         }, 3500);
+    }
+
+    // Export current visible/filtered release notes to CSV
+    function exportToCSV() {
+        const csvRows = [['Date', 'Type', 'Description', 'Link']];
+        
+        releaseNotes.forEach(entry => {
+            const matchedUpdates = entry.updates.filter(upd => {
+                const matchesType = (activeTypeFilter === 'all' || upd.type === activeTypeFilter);
+                const matchesSearch = !searchQuery || 
+                    upd.type.toLowerCase().includes(searchQuery) ||
+                    upd.text.toLowerCase().includes(searchQuery) ||
+                    entry.title.toLowerCase().includes(searchQuery);
+                return matchesType && matchesSearch;
+            });
+            
+            matchedUpdates.forEach(upd => {
+                const escapeCsv = (val) => {
+                    if (val === null || val === undefined) return '';
+                    let str = String(val).replace(/"/g, '""'); // Escape double quotes
+                    if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+                        str = `"${str}"`;
+                    }
+                    return str;
+                };
+                
+                csvRows.push([
+                    escapeCsv(entry.title),
+                    escapeCsv(upd.type),
+                    escapeCsv(upd.text),
+                    escapeCsv(entry.link)
+                ]);
+            });
+        });
+        
+        if (csvRows.length <= 1) {
+            showToast('No updates to export!', 'warning');
+            return;
+        }
+        
+        const csvContent = csvRows.map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `bigquery_release_notes_${activeTypeFilter}_${new Date().toISOString().slice(0,10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showToast(`Exported ${csvRows.length - 1} updates to CSV!`, 'success');
     }
 });
